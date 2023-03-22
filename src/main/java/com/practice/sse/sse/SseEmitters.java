@@ -4,12 +4,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Component
 @Slf4j
 public class SseEmitters {
+
+    private static final AtomicLong counter = new AtomicLong();
 
     private final List<SseEmitter> emitters = new CopyOnWriteArrayList<>();
 
@@ -34,5 +38,21 @@ public class SseEmitters {
             emitter.complete();
         });
         return emitter;
+    }
+
+    /*
+    누군가 count를 호출했을 때 서버에 저장된 숫자를 1 증가시키고 SSE 커넥션이 열려있는 모든 클라이언트에게 전달
+     */
+    public void count() {
+        long count = counter.incrementAndGet();
+        emitters.forEach(emitter -> {
+            try {
+                emitter.send(SseEmitter.event()
+                        .name("count")
+                        .data(count));
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 }
